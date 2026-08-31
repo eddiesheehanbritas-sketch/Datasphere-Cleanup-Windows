@@ -1,0 +1,146 @@
+# Portal scraping settings (shared defaults — overridden per tenant below)
+portal:
+  base_url: "https://six-btp.cfapps.eu10-004.hana.ondemand.com/academy-main"
+  search_term: "SAP Datasphere Overview"
+  # Scroll pause between virtual-scroll steps — SAPUI5 renders rows async,
+  # no XHR fires, so a short sleep is the only reliable signal here.
+  scroll_pause: 0.5
+
+# Datasphere settings (shared defaults — overridden per tenant below)
+datasphere:
+  # Gap after each deletion — SAP backend deletion is async and holds a tenant lock.
+  # Too short causes the next search to stall while the backend is still settling.
+  post_delete_pause: 12.0
+
+# Batch settings
+batch:
+  # Number of workshops to collect per scroll pass (Stage 1).
+  size: 50
+  # Hard cap on total workshops processed per Stage 1 run (0 = unlimited).
+  max_workshops: 50
+
+# Circuit breaker — abort run if failure rate exceeds this threshold
+circuit_breaker:
+  failure_rate_threshold: 0.20   # 20%
+  min_attempts_before_trigger: 10
+
+# Retry settings (exponential backoff)
+retry:
+  attempts: 3
+  backoff_seconds: [5, 15, 60]
+
+# Safety limits
+limits:
+  # Maximum spaces to delete in a single run (0 = unlimited)
+  max_deletions: 0
+
+# Dry-run mode — MUST be explicitly set to false to perform real deletions
+dry_run: false
+
+# Output paths (shared — tenant-specific file paths are set per tenant below)
+outputs:
+  logs_dir: "outputs/logs"
+  reports_dir: "outputs/reports"
+  allowlist_file: "config/allowlist.txt"
+
+# Per-tenant overrides — loaded via load_tenant_config(tenant)
+tenants:
+  eu10:
+    batch:
+      max_workshops: 300
+    portal:
+      base_url: "https://six-btp.cfapps.eu10-004.hana.ondemand.com/academy-main"
+      session_file: "storage_state_portal_eu10.json"
+      dc_region: "EU10"
+    datasphere:
+      base_url: "https://academy.eu10.hcs.cloud.sap"
+      session_file: "storage_state_datasphere_eu10.json"
+      sign_in_path: "/dwaas-core/index.html#/spaceManagement"
+      space_management_path: "/dwaas-core/index.html#/spaceManagement"
+    outputs:
+      deleted_file:             "outputs/user_lists/deleted_eu10.txt"
+      processed_workshops_file: "outputs/user_lists/processed_workshops_eu10.txt"
+      pending_workshops_file:   "outputs/user_lists/pending_workshops_eu10.txt"
+  us10:
+    batch:
+      max_workshops: 300
+    portal:
+      base_url: "https://six-btp.cfapps.eu10-004.hana.ondemand.com/academy-main"
+      session_file: "storage_state_portal_us10.json"
+      dc_region: "US10"
+    datasphere:
+      base_url: "https://academy.us10.hcs.cloud.sap"
+      session_file: "storage_state_datasphere_us10.json"
+      sign_in_path: "/dwaas-ui/index.html#/home"
+      space_management_path: "/dwaas-ui/index.html#/managespaces&/ms/overview?view=tile"
+    outputs:
+      deleted_file:             "outputs/user_lists/deleted_us10.txt"
+      processed_workshops_file: "outputs/user_lists/processed_workshops_us10.txt"
+      pending_workshops_file:   "outputs/user_lists/pending_workshops_us10.txt"
+  ap11:
+    batch:
+      max_workshops: 300
+    portal:
+      base_url: "https://six-btp.cfapps.eu10-004.hana.ondemand.com/academy-main"
+      session_file: "storage_state_portal_ap11.json"
+      dc_region: "AP11"
+    datasphere:
+      base_url: "https://academy.ap11.hcs.cloud.sap"
+      session_file: "storage_state_datasphere_ap11.json"
+      sign_in_path: "/dwaas-ui/index.html#/home"
+      space_management_path: "/dwaas-ui/index.html#/managespaces&/ms/overview?view=tile"
+    outputs:
+      deleted_file:             "outputs/user_lists/deleted_ap11.txt"
+      processed_workshops_file: "outputs/user_lists/processed_workshops_ap11.txt"
+      pending_workshops_file:   "outputs/user_lists/pending_workshops_ap11.txt"
+  ap11_2:
+    batch:
+      max_workshops: 300
+    portal:
+      base_url: "https://six-btp.cfapps.eu10-004.hana.ondemand.com/academy-main"
+      session_file: "storage_state_portal_ap11_2.json"
+      dc_region: "AP11"
+      requests_tree_item: "Public request(s)"
+    datasphere:
+      base_url: "https://academydatasphere-1.ap11.hcs.cloud.sap"
+      session_file: "storage_state_datasphere_ap11_2.json"
+      sign_in_path: "/dwaas-core/index.html#/spaceManagement"
+      space_management_path: "/dwaas-core/index.html#/managespaces&/ms/overview?view=tile"
+    outputs:
+      deleted_file:             "outputs/user_lists/deleted_ap11_2.txt"
+      processed_workshops_file: "outputs/user_lists/processed_workshops_ap11_2.txt"
+      pending_workshops_file:   "outputs/user_lists/pending_workshops_ap11_2.txt"
+  eu10_2:
+    batch:
+      max_workshops: 300
+    portal:
+      base_url: "https://six-btp.cfapps.eu10-004.hana.ondemand.com/academy-main"
+      session_file: "storage_state_portal_eu10_2.json"
+      dc_region: "EU10"
+      requests_tree_item: "Public request(s)"
+    datasphere:
+      base_url: "https://academydatasphere.eu10.hcs.cloud.sap"
+      session_file: "storage_state_datasphere_eu10_2.json"
+      sign_in_path: "/dwaas-ui/index.html#/home"
+      space_management_path: "/dwaas-ui/index.html#/managespaces&/ms/overview?view=tile"
+    outputs:
+      deleted_file:             "outputs/user_lists/deleted_eu10_2.txt"
+      processed_workshops_file: "outputs/user_lists/processed_workshops_eu10_2.txt"
+      pending_workshops_file:   "outputs/user_lists/pending_workshops_eu10_2.txt"
+  us10_2:
+    batch:
+      max_workshops: 300
+    portal:
+      base_url: "https://six-btp.cfapps.eu10-004.hana.ondemand.com/academy-main"
+      session_file: "storage_state_portal_us10_2.json"
+      dc_region: "US10"
+      requests_tree_item: "Public request(s)"
+    datasphere:
+      base_url: "https://academydatasphere-2.us10.hcs.cloud.sap"
+      session_file: "storage_state_datasphere_us10_2.json"
+      sign_in_path: "/dwaas-ui/index.html#/home"
+      space_management_path: "/dwaas-ui/index.html#/managespaces&/ms/overview?view=tile"
+    outputs:
+      deleted_file:             "outputs/user_lists/deleted_us10_2.txt"
+      processed_workshops_file: "outputs/user_lists/processed_workshops_us10_2.txt"
+      pending_workshops_file:   "outputs/user_lists/pending_workshops_us10_2.txt"

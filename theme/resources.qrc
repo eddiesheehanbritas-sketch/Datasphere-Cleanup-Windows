@@ -1,0 +1,24 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/logo">
+    <file alias="sap_logo.svg">icons/sap_logo.svg</file>
+  </qresource>
+  <qresource prefix="/icons">
+    <file alias="nav_auth.svg">icons/nav_auth.svg</file>
+    <file alias="nav_auth_grey.svg">icons/nav_auth_grey.svg</file>
+    <file alias="nav_auth_active.svg">icons/nav_auth_active.svg</file>
+    <file alias="nav_pipeline.svg">icons/nav_pipeline.svg</file>
+    <file alias="nav_pipeline_grey.svg">icons/nav_pipeline_grey.svg</file>
+    <file alias="nav_pipeline_active.svg">icons/nav_pipeline_active.svg</file>
+    <file alias="nav_workshop.svg">icons/nav_workshop.svg</file>
+    <file alias="nav_workshop_grey.svg">icons/nav_workshop_grey.svg</file>
+    <file alias="nav_workshop_active.svg">icons/nav_workshop_active.svg</file>
+    <file alias="check_white.svg">icons/check_white.svg</file>
+    <file alias="check_indeterminate_white.svg">icons/check_indeterminate_white.svg</file>
+    <file alias="radio_checked.svg">icons/radio_checked.svg</file>
+    <file alias="chevron_down.svg">icons/chevron_down.svg</file>
+    <file alias="chevron_down_grey.svg">icons/chevron_down_grey.svg</file>
+    <file alias="chevron_up.svg">icons/chevron_up.svg</file>
+    <file alias="chevron_up_grey.svg">icons/chevron_up_grey.svg</file>
+  </qresource>
+</RCC>

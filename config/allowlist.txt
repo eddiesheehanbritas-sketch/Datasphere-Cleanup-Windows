@@ -1,0 +1,6 @@
+# Allowlist — space IDs listed here will NEVER be deleted, regardless of input.
+# One space ID per line. Lines beginning with # are comments.
+#
+# Example:
+# AC000000U00
+# SHARED_ADMIN_SPACE
