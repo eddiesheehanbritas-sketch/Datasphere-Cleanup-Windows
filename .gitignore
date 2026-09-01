@@ -34,6 +34,9 @@ outputs/**
 # AI-assistant context (local-only dev notes, not for the repo)
 CLAUDE.md
 
+# Developer docs (local-only maintenance references, not for the repo)
+docs/
+
 # Logs
 *.log
 *.bak
