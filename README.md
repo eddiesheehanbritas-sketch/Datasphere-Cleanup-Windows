@@ -30,12 +30,16 @@ You do **not** need Python or any developer tools — just download the app.
    `Datasphere Cleanup.dmg`.
 2. Double-click the `.dmg`, then drag **Datasphere Cleanup** into your
    `Applications` folder.
-3. **First launch only** — **right-click** (or Control-click) the app icon and
-   choose **Open**, then click **Open** again in the dialog. macOS remembers this,
-   so every later launch is a normal double-click.
+3. **First launch only** — when you open the app, macOS shows
+   *"Apple could not verify 'Datasphere Cleanup' is free of malware…"*. This is
+   expected (the app is signed ad-hoc, not through Apple's paid program) and safe
+   to open. To allow it:
+   - Open the **Apple menu ()** → **System Settings** → **Privacy & Security**.
+   - Scroll to the **Security** section and click **Open Anyway** next to
+     *"Datasphere Cleanup" was blocked…*, then authenticate.
 
-   If it still refuses to open with a *"damaged"* message, clear the download
-   flag once in Terminal:
+   macOS remembers this, so every later launch is a normal double-click. If
+   "Open Anyway" isn't shown, clear the download flag once in Terminal:
    ```bash
    xattr -dr com.apple.quarantine "/Applications/Datasphere Cleanup.app"
    ```
@@ -45,6 +49,8 @@ credentials. Chromium is bundled inside the app — nothing else to install.
 
 On first launch the app creates `~/Documents/Datasphere Cleanup/` for its config
 and outputs.
+
+> See **[QUICKSTART.md](QUICKSTART.md)** for a full step-by-step setup guide.
 
 ---
 
