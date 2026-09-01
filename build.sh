@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
-# build.sh — produces "Datasphere Cleanup.app" in dist/
+# build.sh — produces "Datasphere Cleanup.app" and a compressed .dmg in dist/
 #
 # Usage:
 #   chmod +x build.sh   (first time only)
 #   ./build.sh
 #
-# Output: dist/Datasphere Cleanup.app
-# Share the .app by zipping: zip -r "Datasphere Cleanup.zip" "dist/Datasphere Cleanup.app"
+# Output:
+#   dist/Datasphere Cleanup.app   — the app bundle
+#   dist/Datasphere Cleanup.dmg   — compressed disk image to distribute to the team
 
 set -euo pipefail
 
@@ -29,6 +30,27 @@ echo "Copying Chromium into .app..."
 mkdir -p "$CHROMIUM_DST"
 cp -R "$CHROMIUM_SRC/" "$CHROMIUM_DST/"
 
+# Ad-hoc sign the whole bundle (including the Chromium we just copied in) so it is
+# internally consistent. We have no Apple Developer cert, so "-" is an ad-hoc
+# signature — this does NOT get past Gatekeeper on its own, but it turns the fatal
+# "app is damaged, move to Trash" error into the ordinary "unidentified developer"
+# prompt that a user clears once with right-click -> Open. --deep signs the nested
+# Chromium binaries; --force replaces any stale signatures left by the copy.
+echo "Ad-hoc signing the bundle..."
+codesign --force --deep --sign - "dist/Datasphere Cleanup.app"
+
+# Package into a compressed disk image (UDZO = zlib-compressed).
+# This preserves the bundle exactly (permissions, symlinks, signing) while
+# compressing far better than zip, since hdiutil compresses the whole filesystem.
+echo "Building compressed .dmg..."
+rm -f "dist/Datasphere Cleanup.dmg"
+hdiutil create \
+    -volname "Datasphere Cleanup" \
+    -srcfolder "dist/Datasphere Cleanup.app" \
+    -ov -format UDZO -imagekey zlib-level=9 \
+    "dist/Datasphere Cleanup.dmg"
+
 echo ""
-echo "Done. App is at: dist/Datasphere Cleanup.app"
-echo "To distribute: zip -r \"Datasphere Cleanup.zip\" \"dist/Datasphere Cleanup.app\""
+echo "Done."
+echo "  App: dist/Datasphere Cleanup.app"
+echo "  Distribute: dist/Datasphere Cleanup.dmg"

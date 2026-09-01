@@ -28,6 +28,38 @@ tenants from a single window.
 
 ---
 
+## Install (packaged app — for operators)
+
+If you just want to **run** the tool, you do not need Python or any of the setup
+below. Download the ready-to-run macOS app:
+
+1. Go to the [**Releases** page](../../releases/latest) and download
+   `Datasphere Cleanup.dmg`.
+2. Double-click the `.dmg`, then drag **Datasphere Cleanup** into your
+   `Applications` folder.
+3. **First launch only** — the app is signed ad-hoc (not through the Apple
+   Developer program), so macOS will refuse to open it on a double-click.
+   Instead, **right-click** (or Control-click) the app icon and choose **Open**,
+   then click **Open** again in the dialog. macOS remembers this choice, so every
+   later launch is a normal double-click.
+
+   If you copied the app via Terminal or it still refuses to open with a
+   *"damaged"* message, clear the download quarantine flag once:
+   ```bash
+   xattr -dr com.apple.quarantine "/Applications/Datasphere Cleanup.app"
+   ```
+
+**Requirements:** Apple Silicon Mac (M1 or later). Chromium is bundled inside the
+app — nothing else to install. On first launch the app creates
+`~/Documents/Datasphere Cleanup/` for its config and outputs, and seeds a default
+`config/settings.yaml` there. Edit that file to review the safety settings before
+your first live run.
+
+> The rest of this README (Prerequisites, Setup, CLI) is for **developers**
+> building from source. Operators using the packaged app can stop here.
+
+---
+
 ## Prerequisites
 
 - Python 3.9+
