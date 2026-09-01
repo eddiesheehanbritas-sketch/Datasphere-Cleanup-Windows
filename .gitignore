@@ -31,6 +31,9 @@ outputs/**
 .vscode/
 .idea/
 
+# AI-assistant context (local-only dev notes, not for the repo)
+CLAUDE.md
+
 # Logs
 *.log
 *.bak
