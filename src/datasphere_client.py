@@ -232,6 +232,10 @@ _BULK_DELETE_BTN     = "[id$='manageSpaces--toolbar--deleteButton']"
 _BULK_CONFIRM_DIALOG = "[id*='DeleteConfirmationDialog--dialog']"
 _BULK_CONFIRM_INPUT  = "[id*='DeleteConfirmationDialog--dialog--view--deleteInput-inner']"
 _BULK_CONFIRM_OK     = "[id*='DeleteConfirmationDialog--dialog--view--ok']"
+# Space Management search grid paginates at 25 tiles/page. Confirmed live on EU10 workshop
+# 86025 (51 spaces → pages "1" and "2") that this grid uses the same pagesSegmentedButton
+# component Stage 4 drives. A workshop with ≤25 spaces has no pager → _bulk_page_count == 1.
+_BULK_PAGE_BUTTONS   = "[id*='pagesSegmentedButton'] [role='option']"
 
 
 def _workshop_id_re(workshop: str) -> "re.Pattern":
@@ -342,6 +346,32 @@ async def _wait_for_search_settled(page: Page, workshop: str) -> bool:
     return False
 
 
+async def _bulk_page_count(page: Page) -> int:
+    """Return the number of pager pages on the Space Management search grid (1 if none).
+
+    Mirrors stage4_purge._get_page_count against the same pagesSegmentedButton component.
+    A short wait: if the pager is absent within 3s the workshop has a single page (≤25
+    spaces) and paging is a no-op."""
+    try:
+        await page.wait_for_selector(_BULK_PAGE_BUTTONS, timeout=3000)
+        count = await page.locator(_BULK_PAGE_BUTTONS).count()
+        return count if count > 0 else 1
+    except Exception:
+        return 1
+
+
+async def _bulk_goto_page(page: Page, page_index: int) -> None:
+    """Click the nth (0-indexed) pager button and wait for the tile grid to re-render.
+
+    Mirrors stage4_purge._go_to_page: click, wait for an identifier-txt tile to be present,
+    then a short fixed settle for SAPUI5 virtual scroll. Selection made on prior pages
+    PERSISTS across this navigation (confirmed live on EU10 86025)."""
+    btn = page.locator(_BULK_PAGE_BUTTONS).nth(page_index)
+    await btn.click()
+    await page.wait_for_selector(_BULK_IDENTIFIER_TXT, timeout=_WAIT_TIMEOUT)
+    await asyncio.sleep(0.5)
+
+
 async def find_workshop_spaces(page: Page, workshop: str, cfg: dict = None) -> List[dict]:
     """Search Datasphere by WORKSHOP NUMBER and return every space belonging to it.
 
@@ -391,36 +421,50 @@ async def find_workshop_spaces(page: Page, workshop: str, cfg: dict = None) -> L
             f"matching state within {_WAIT_TIMEOUT}ms — refusing to read stale tiles"
         )
 
-    # Read every card: container index N, header identifier, and the user-ID text node.
-    # The user ID is the card text that matches the AC/GE id shape; headline is the
-    # identifier-txt (may be a renamed name). Mirrors the container-index evaluate
-    # pattern used by the (per-user) tile scanner.
-    raw = await page.evaluate("""() => {
-        const ids = document.querySelectorAll('[id$="spaceTileHeader-identifier-txt"]');
-        const out = [];
-        ids.forEach(idEl => {
-            const m = idEl.id.match(/spacesContainer-(\\d+)--spaceTileHeader/);
-            if (!m) return;
-            const n = m[1];
-            let card = idEl;
-            while (card && card.tagName !== 'BODY') {
-                if (card.className && card.className.toString().includes('sapFCard')) break;
-                card = card.parentElement;
-            }
-            // Collect candidate ID texts from leaf elements in the card.
-            const texts = [];
-            if (card) {
-                card.querySelectorAll('[id]').forEach(el => {
-                    if (el.children.length === 0) {
-                        const t = (el.innerText || '').trim();
-                        if (t) texts.push(t);
-                    }
-                });
-            }
-            out.push({ container: n, headline: idEl.innerText.trim(), texts: texts });
-        });
-        return out;
-    }""")
+    # Read every card ACROSS ALL PAGES: the search grid paginates at 25 tiles/page, so a
+    # workshop with >25 spaces (e.g. EU10 86025 has 51) would otherwise surface only page 1
+    # and leave the rest silently un-swept. Read each page's cards and dedupe by container.
+    # Single-page workshops: _bulk_page_count returns 1 → this reads exactly the current page,
+    # identical to the pre-pagination behaviour.
+    async def _read_current_page() -> list:
+        return await page.evaluate("""() => {
+            const ids = document.querySelectorAll('[id$="spaceTileHeader-identifier-txt"]');
+            const out = [];
+            ids.forEach(idEl => {
+                const m = idEl.id.match(/spacesContainer-(\\d+)--spaceTileHeader/);
+                if (!m) return;
+                const n = m[1];
+                let card = idEl;
+                while (card && card.tagName !== 'BODY') {
+                    if (card.className && card.className.toString().includes('sapFCard')) break;
+                    card = card.parentElement;
+                }
+                // Collect candidate ID texts from leaf elements in the card.
+                const texts = [];
+                if (card) {
+                    card.querySelectorAll('[id]').forEach(el => {
+                        if (el.children.length === 0) {
+                            const t = (el.innerText || '').trim();
+                            if (t) texts.push(t);
+                        }
+                    });
+                }
+                out.push({ container: n, headline: idEl.innerText.trim(), texts: texts });
+            });
+            return out;
+        }""")
+
+    page_count = await _bulk_page_count(page)
+    raw = []
+    seen_containers = set()
+    for pg in range(page_count):
+        if pg > 0:
+            await _bulk_goto_page(page, pg)
+        for card in await _read_current_page():
+            if card["container"] in seen_containers:
+                continue
+            seen_containers.add(card["container"])
+            raw.append(card)
 
     validator = _workshop_id_re(workshop)
     results = []
@@ -488,18 +532,37 @@ async def delete_workshop_spaces(page: Page, workshop: str, cards: List[dict], c
                                         outcome="failed", error=err))
         return results
 
-    # Tick each validated card's checkbox by container index.
+    # Tick each validated card's checkbox by container index. Targets may span multiple
+    # pager pages (the grid caps at 25 tiles/page); a container is only in the DOM while its
+    # page is showing. Selection PERSISTS across pages and the bulk Delete acts on the full
+    # cross-page selection (confirmed live on EU10 86025), so we walk each page, tick whichever
+    # targets are present, and accumulate — then fire ONE delete. Single-page workshops:
+    # page_count == 1 → one pass over the current page, identical to the pre-pagination path.
+    remaining = {c["container"]: c for c in to_delete}
     ticked = 0
-    for c in to_delete:
-        cb = page.locator(f"[id*='spacesContainer-{c['container']}-'] {_BULK_ROW_CHECKBOX}").first
-        try:
-            await cb.click(timeout=_WAIT_TIMEOUT)
-            ticked += 1
-        except Exception as exc:
-            return await _fail_all(f"could not select checkbox for {c['user_id']}: {exc}")
+    page_count = await _bulk_page_count(page)
+    for pg in range(page_count):
+        if not remaining:
+            break
+        if pg > 0:
+            await _bulk_goto_page(page, pg)
+        for container in list(remaining):
+            cb = page.locator(f"[id*='spacesContainer-{container}-'] {_BULK_ROW_CHECKBOX}").first
+            if await cb.count() == 0:
+                continue  # this target's tile is on another page
+            try:
+                await cb.click(timeout=_WAIT_TIMEOUT)
+                ticked += 1
+                del remaining[container]
+            except Exception as exc:
+                return await _fail_all(
+                    f"could not select checkbox for {remaining[container]['user_id']}: {exc}"
+                )
 
-    # Guard: the number we ticked must equal the number we intended to delete.
-    if ticked != len(to_delete):
+    # Guard: the number we ticked must equal the number we intended to delete. A leftover in
+    # `remaining` means a target's tile was never found on any page — fail CLOSED rather than
+    # delete a partial set.
+    if ticked != len(to_delete) or remaining:
         return await _fail_all(f"selected {ticked} but intended {len(to_delete)}")
 
     @with_retry(backoff)

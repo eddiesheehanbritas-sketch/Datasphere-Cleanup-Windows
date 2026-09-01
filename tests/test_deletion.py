@@ -1,5 +1,6 @@
 import json
 import asyncio
+import re
 import pytest
 from pathlib import Path
 from unittest.mock import MagicMock, AsyncMock, patch
@@ -695,8 +696,12 @@ def _bulk_delete_page():
         m.click = MagicMock(side_effect=_noop)
         m.wait_for = MagicMock(side_effect=_noop)
         m.fill = MagicMock(side_effect=_noop)
+        # cb.count() (on .first) — checkbox present on the current page.
+        m.count = AsyncMock(return_value=1)
         wrapper = MagicMock()
         wrapper.first = m
+        # locator(_BULK_PAGE_BUTTONS).count() → single pager page (no pagination).
+        wrapper.count = AsyncMock(return_value=1)
         return wrapper
 
     page = MagicMock()
@@ -750,10 +755,86 @@ class TestDeleteWorkshopSpaces:
             results = asyncio.run(delete_workshop_spaces(page, "279401", self._cards(4), self._cfg(), dry_run=False))
         assert [r.outcome for r in results] == ["deleted"] * 4
 
+    def test_selection_spans_multiple_pages(self):
+        """Targets split across two pager pages: page 1 holds containers 0-1, page 2 holds
+        2-3. The walk must goto page 2 for the tiles absent from page 1, tick all 4, and
+        fire ONE delete. Mirrors EU10 86025 (51 spaces over 2 pages)."""
+        from src.datasphere_client import delete_workshop_spaces
+        cards = self._cards(4)
+        page1_containers = {"0", "1"}
+        current_page = {"idx": 0}
+        page_clicks = {"n": 0}
+
+        async def _noop(*a, **kw): pass
+        async def _page_click(*a, **kw): page_clicks["n"] += 1; current_page["idx"] = 1
+
+        def _loc(sel, *a, **kw):
+            wrapper = MagicMock()
+            wrapper.count = AsyncMock(return_value=2)  # two pager pages
+            if "pagesSegmentedButton" in sel:
+                # .nth(i) → a page button whose click advances to page 2
+                wrapper.nth = MagicMock(return_value=MagicMock(click=_page_click))
+                return wrapper
+            # A checkbox locator: present only if its container is on the current page.
+            m = re.search(r"spacesContainer-(\d+)-", sel)
+            container = m.group(1) if m else None
+            on_page1 = container in page1_containers
+            present = on_page1 if current_page["idx"] == 0 else not on_page1
+            first = MagicMock(click=MagicMock(side_effect=_noop),
+                              wait_for=MagicMock(side_effect=_noop),
+                              fill=MagicMock(side_effect=_noop),
+                              count=AsyncMock(return_value=1 if present else 0))
+            wrapper.first = first
+            return wrapper
+
+        page = MagicMock()
+        page.locator = MagicMock(side_effect=_loc)
+        async def fake_wait_selector(sel, **kw): pass
+        page.wait_for_selector = fake_wait_selector
+
+        with patch("src.datasphere_client._wait_for_sap_post_deletion_nav", side_effect=_noop), \
+             patch("src.datasphere_client.wait_for_space_mgmt_ready", side_effect=_noop):
+            results = asyncio.run(delete_workshop_spaces(page, "279401", cards, self._cfg(), dry_run=False))
+
+        assert [r.outcome for r in results] == ["deleted"] * 4
+        assert page_clicks["n"] == 1, "must navigate to page 2 exactly once to reach the remaining tiles"
+
+    def test_missing_tile_on_any_page_fails_closed(self):
+        """A target whose tile is on NO page (count 0 everywhere) must abort the whole batch
+        rather than delete a partial set."""
+        from src.datasphere_client import delete_workshop_spaces
+        cards = self._cards(3)
+        async def _noop(*a, **kw): pass
+        def _loc(sel, *a, **kw):
+            wrapper = MagicMock()
+            wrapper.count = AsyncMock(return_value=1)  # single page
+            if "pagesSegmentedButton" in sel:
+                return wrapper
+            m = re.search(r"spacesContainer-(\d+)-", sel)
+            container = m.group(1) if m else None
+            present = container != "1"  # container 1's tile never appears
+            first = MagicMock(click=MagicMock(side_effect=_noop),
+                              count=AsyncMock(return_value=1 if present else 0))
+            wrapper.first = first
+            return wrapper
+        page = MagicMock()
+        page.locator = MagicMock(side_effect=_loc)
+        async def fake_wait_selector(sel, **kw): pass
+        page.wait_for_selector = fake_wait_selector
+        with patch("src.datasphere_client._wait_for_sap_post_deletion_nav", side_effect=_noop), \
+             patch("src.datasphere_client.wait_for_space_mgmt_ready", side_effect=_noop):
+            results = asyncio.run(delete_workshop_spaces(page, "279401", cards, self._cfg(), dry_run=False))
+        assert [r.outcome for r in results] == ["failed"] * 3
+
     def test_checkbox_failure_aborts_all(self):
         from src.datasphere_client import delete_workshop_spaces
         page = MagicMock()
         async def raise_click(*a, **kw): raise Exception("checkbox not found")
-        page.locator = MagicMock(return_value=MagicMock(first=MagicMock(click=raise_click)))
+        def _loc(*a, **kw):
+            first = MagicMock(click=raise_click, count=AsyncMock(return_value=1))
+            return MagicMock(first=first, count=AsyncMock(return_value=1))
+        page.locator = MagicMock(side_effect=_loc)
+        async def fake_wait_selector(sel, **kw): pass
+        page.wait_for_selector = fake_wait_selector
         results = asyncio.run(delete_workshop_spaces(page, "279401", self._cards(3), self._cfg(), dry_run=False))
         assert [r.outcome for r in results] == ["failed"] * 3
