@@ -18,6 +18,14 @@ jobs:
         with:
           python-version: "3.9"
 
+      - name: Add Python to PATH for DLL resolution
+        run: |
+          $pyHome = (python -c "import sys; print(sys.exec_prefix)")
+          echo "$pyHome" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "$pyHome\DLLs" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+          echo "$pyHome\Lib" | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+        shell: pwsh
+
       - name: Install dependencies
         run: |
           pip install -r requirements.txt

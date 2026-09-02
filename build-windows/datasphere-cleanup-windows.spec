@@ -117,14 +117,13 @@ hidden_imports = [
     "dotenv.main",
 ]
 
-# ── Binaries: include python39.dll next to the exe so Windows can find it ─────
-import glob as _glob
+# ── Binaries: include all Python DLLs next to the exe so Windows can find them ─
 _python_dir = Path(_sys.exec_prefix)
-_py_dlls = (
-    list(_python_dir.glob("python3*.dll")) +
-    list((_python_dir / "DLLs").glob("python3*.dll"))
+_dll_sources = (
+    list(_python_dir.glob("*.dll")) +
+    list((_python_dir / "DLLs").glob("*.dll"))
 )
-binaries = [(str(d), ".") for d in _py_dlls if d.exists()]
+binaries = [(str(d), ".") for d in _dll_sources if d.exists()]
 
 # ── Analysis ───────────────────────────────────────────────────────────────────
 a = Analysis(
