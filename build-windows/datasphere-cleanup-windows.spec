@@ -117,11 +117,20 @@ hidden_imports = [
     "dotenv.main",
 ]
 
+# ── Binaries: include python39.dll next to the exe so Windows can find it ─────
+import glob as _glob
+_python_dir = Path(_sys.exec_prefix)
+_py_dlls = (
+    list(_python_dir.glob("python3*.dll")) +
+    list((_python_dir / "DLLs").glob("python3*.dll"))
+)
+binaries = [(str(d), ".") for d in _py_dlls if d.exists()]
+
 # ── Analysis ───────────────────────────────────────────────────────────────────
 a = Analysis(
     [str(ROOT / "src" / "combined.py")],
     pathex=[str(ROOT)],
-    binaries=[],
+    binaries=binaries,
     datas=datas,
     hiddenimports=hidden_imports,
     hookspath=[],
