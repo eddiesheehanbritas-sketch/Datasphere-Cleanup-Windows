@@ -1,0 +1,62 @@
+name: Build Windows App
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:  # allows manual trigger from the Actions tab
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.9
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.9"
+
+      - name: Install dependencies
+        run: |
+          python -m venv .venv
+          .venv\Scripts\activate
+          pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+        shell: cmd
+
+      - name: Install Playwright and download Chromium
+        run: |
+          .venv\Scripts\activate
+          playwright install chromium
+        shell: cmd
+
+      - name: Build with PyInstaller
+        run: |
+          .venv\Scripts\activate
+          pyinstaller build-windows\datasphere-cleanup-windows.spec
+        shell: cmd
+
+      - name: Copy Chromium into dist folder
+        # Chromium must be copied in after PyInstaller runs — if it were included
+        # in the spec's datas, PyInstaller would reprocess its binaries and break them.
+        run: |
+          $chromiumSrc = "$env:LOCALAPPDATA\ms-playwright\chromium-1223"
+          $chromiumDst = "dist\Datasphere Cleanup\ms-playwright\chromium-1223"
+          New-Item -ItemType Directory -Force -Path $chromiumDst | Out-Null
+          Copy-Item -Recurse -Force "$chromiumSrc\*" "$chromiumDst\"
+        shell: pwsh
+
+      - name: Zip the distribution folder
+        run: |
+          Compress-Archive -Path "dist\Datasphere Cleanup" -DestinationPath "dist\Datasphere-Cleanup-Windows.zip"
+        shell: pwsh
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Datasphere-Cleanup-Windows
+          path: dist\Datasphere-Cleanup-Windows.zip
+          retention-days: 30
