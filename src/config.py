@@ -101,7 +101,7 @@ def add_tenant(
     with open(path, encoding="utf-8") as f:
         raw = yaml.safe_load(f)
 
-    tenants = raw.setdefault("tenants", {})
+    tenants = raw.get("tenants", {})
     if key in tenants:
         raise ValueError(f"Tenant key '{key}' already exists.")
 
@@ -112,36 +112,18 @@ def add_tenant(
         sign_in_path    = _DWAAS_UI_SIGN_IN
         space_mgmt_path = _DWAAS_UI_SPACE_MGMT
 
-    tenant_block: dict = {
-        "user_added": True,
-        "display_name": display_name,
-        "batch": {"max_workshops": 300},
-        "portal": {
-            "base_url": PORTAL_BASE_URL,
-            "session_file": f"storage_state_portal_{key}.json",
-            "dc_region": dc_region,
-        },
-        "datasphere": {
-            "base_url": base_url.rstrip("/"),
-            "session_file": f"storage_state_datasphere_{key}.json",
-            "sign_in_path": sign_in_path,
-            "space_management_path": space_mgmt_path,
-        },
-        "outputs": {
-            "deleted_file":             f"outputs/user_lists/deleted_{key}.txt",
-            "processed_workshops_file": f"outputs/user_lists/processed_workshops_{key}.txt",
-            "pending_workshops_file":   f"outputs/user_lists/pending_workshops_{key}.txt",
-        },
-    }
-
-    if is_public:
-        tenant_block["portal"]["requests_tree_item"] = "Public request(s)"
-
-    tenants[key] = tenant_block
+    # Escape double-quotes so user input can't produce invalid YAML strings.
+    safe_display_name = display_name.replace('"', '\\"')
+    safe_base_url     = base_url.rstrip("/").replace('"', '\\"')
 
     # Create empty output files so the pipeline never hits a missing-file error.
-    for file_key in ("deleted_file", "processed_workshops_file", "pending_workshops_file"):
-        p = Path(tenant_block["outputs"][file_key])
+    output_paths = {
+        "deleted_file":             f"outputs/user_lists/deleted_{key}.txt",
+        "processed_workshops_file": f"outputs/user_lists/processed_workshops_{key}.txt",
+        "pending_workshops_file":   f"outputs/user_lists/pending_workshops_{key}.txt",
+    }
+    for p_str in output_paths.values():
+        p = Path(p_str)
         p.parent.mkdir(parents=True, exist_ok=True)
         if not p.exists():
             p.touch()
@@ -154,7 +136,7 @@ def add_tenant(
     )
     block_text = f"""  {key}:
     user_added: true
-    display_name: "{display_name}"
+    display_name: "{safe_display_name}"
     batch:
       max_workshops: 300
     portal:
@@ -162,7 +144,7 @@ def add_tenant(
       session_file: "storage_state_portal_{key}.json"
       dc_region: "{dc_region}"{requests_line}
     datasphere:
-      base_url: "{base_url.rstrip('/')}"
+      base_url: "{safe_base_url}"
       session_file: "storage_state_datasphere_{key}.json"
       sign_in_path: "{sign_in_path}"
       space_management_path: "{space_mgmt_path}"

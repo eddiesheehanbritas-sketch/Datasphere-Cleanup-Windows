@@ -403,32 +403,30 @@ class CombinedApp(QMainWindow):
             f"QListWidget::item:hover {{ background-color: {_C_NAV_HOVER}; border-radius: 3px; }}"
         )
 
-        _REGION_GROUPS = [
-            ("EU", ["eu10", "eu10_2"]),
-            ("US", ["us10", "us10_2"]),
-            ("AP", ["ap11", "ap11_2"]),
-        ]
-        _all = _all_tenants()
-        _display_names = {
+        _BUILTIN_DISPLAY = {
             "eu10":   "EU10(1)", "eu10_2": "EU10(2)",
             "us10":   "US10(1)", "us10_2": "US10(2)",
             "ap11":   "AP11(1)", "ap11_2": "AP11(2)",
         }
 
-        for _region, _members in _REGION_GROUPS:
-            for tenant in _members:
-                if tenant not in _all:
-                    continue
-                try:
-                    url = _load_cfg(tenant)["datasphere"]["base_url"]
-                except Exception:
-                    url = ""
-                label = f"{_display_names.get(tenant, tenant.upper())}    {url}"
-                item = QListWidgetItem(label)
-                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-                item.setCheckState(Qt.Checked)
-                item.setData(Qt.UserRole, tenant)
-                self._tenant_list_widget.addItem(item)
+        try:
+            from src.config import load_config as _load_raw
+            _raw_tenants = _load_raw("config/settings.yaml").get("tenants", {})
+        except Exception:
+            _raw_tenants = {}
+
+        for tenant, block in _raw_tenants.items():
+            display = block.get("display_name") or _BUILTIN_DISPLAY.get(tenant, tenant.upper())
+            try:
+                url = block.get("datasphere", {}).get("base_url", "")
+            except Exception:
+                url = ""
+            label = f"{display}    {url}"
+            item = QListWidgetItem(label)
+            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            item.setCheckState(Qt.Checked)
+            item.setData(Qt.UserRole, tenant)
+            self._tenant_list_widget.addItem(item)
 
         row_count = self._tenant_list_widget.count()
         self._tenant_list_widget.setFixedHeight(row_count * 34 + 10)
@@ -761,6 +759,14 @@ class CombinedApp(QMainWindow):
         """Reload the active tenants checklist from settings.yaml after add/remove."""
         from src.config import load_config
         self._tenant_list_widget.blockSignals(True)
+
+        # Preserve existing check states so unchecked tenants stay unchecked.
+        prev_states = {
+            self._tenant_list_widget.item(i).data(Qt.UserRole):
+                self._tenant_list_widget.item(i).checkState()
+            for i in range(self._tenant_list_widget.count())
+        }
+
         self._tenant_list_widget.clear()
 
         try:
@@ -784,7 +790,8 @@ class CombinedApp(QMainWindow):
             label = f"{display}    {url}"
             item = QListWidgetItem(label)
             item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
-            item.setCheckState(Qt.Checked)
+            # New tenants default to Checked; existing tenants keep their prior state.
+            item.setCheckState(prev_states.get(key, Qt.Checked))
             item.setData(Qt.UserRole, key)
             self._tenant_list_widget.addItem(item)
 
@@ -852,6 +859,26 @@ class CombinedApp(QMainWindow):
         self._workshop_id_from_edit = _date_edit("e.g. 277373")
         self._workshop_id_to_edit   = _date_edit("e.g. 281952")
         dl.addLayout(_range_row("Workshop ID range:", self._workshop_id_from_edit, self._workshop_id_to_edit))
+
+        region_row = QHBoxLayout()
+        region_row.setSpacing(10)
+        region_lbl = QLabel("DC Region:")
+        region_lbl.setStyleSheet(f"color: {_C_TEXT_DIM}; font-size: 12px;")
+        region_lbl.setFixedWidth(110)
+        self._dc_region_combo = QComboBox()
+        self._dc_region_combo.addItems(["Use tenant default", "EU10", "US10", "AP11"])
+        self._dc_region_combo.setFixedWidth(160)
+        self._dc_region_combo.setStyleSheet(
+            f"QComboBox {{ background: white; color: {_C_TEXT}; "
+            f"border: 1px solid #CED2D9; border-radius: 6px; "
+            f"min-height: 36px; padding: 0 10px; font-size: 13px; }}"
+            f"QComboBox:hover {{ border-color: #ACB4BE; }}"
+            f"QComboBox::drop-down {{ border: none; width: 24px; }}"
+        )
+        region_row.addWidget(region_lbl)
+        region_row.addWidget(self._dc_region_combo)
+        region_row.addStretch()
+        dl.addLayout(region_row)
 
         max_row = QHBoxLayout()
         max_row.setSpacing(10)
@@ -1317,6 +1344,8 @@ class CombinedApp(QMainWindow):
         _mw_text  = self._max_workshops_edit.text().strip()
         max_workshops_override = int(_mw_text) if _mw_text.isdigit() else None
         search_term = self._selected_search_term()
+        _dc_sel = self._dc_region_combo.currentText()
+        dc_region_override = None if _dc_sel == "Use tenant default" else _dc_sel
 
         async def task():
             import asyncio
@@ -1332,6 +1361,8 @@ class CombinedApp(QMainWindow):
                 cfg["portal"]["workshop_id_from"] = workshop_id_from
                 cfg["portal"]["workshop_id_to"]   = workshop_id_to
                 cfg["portal"]["search_term"] = search_term
+                if dc_region_override is not None:
+                    cfg["portal"]["dc_region"] = dc_region_override
                 run_id = f"{tenant}_{datetime.now(timezone.utc).strftime('%Y%m%d_%H%M%S')}"
                 self._patch_combined_logger(tenant, run_id)
                 def on_progress(msg: str) -> None:
