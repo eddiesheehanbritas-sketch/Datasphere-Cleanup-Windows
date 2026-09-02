@@ -20,18 +20,16 @@ jobs:
 
       - name: Install dependencies
         run: |
-          python -m venv .venv
-          .venv\Scripts\pip install --upgrade pip
-          .venv\Scripts\pip install -r requirements.txt
-          .venv\Scripts\pip install pyinstaller
+          pip install -r requirements.txt
+          pip install pyinstaller
         shell: cmd
 
       - name: Install Playwright and download Chromium
-        run: .venv\Scripts\playwright install chromium
+        run: playwright install chromium
         shell: cmd
 
       - name: Build with PyInstaller
-        run: .venv\Scripts\pyinstaller build-windows\datasphere-cleanup-windows.spec
+        run: pyinstaller build-windows\datasphere-cleanup-windows.spec
         shell: cmd
 
       - name: Copy Chromium into dist folder
@@ -40,7 +38,6 @@ jobs:
         # Use the venv's playwright to find the exact chromium path rather than
         # hardcoding it, since the revision number can vary by playwright version.
         run: |
-          $playwrightDir = ".venv\Lib\site-packages\playwright"
           $chromiumSrc = (Get-ChildItem "$env:LOCALAPPDATA\ms-playwright" -Filter "chromium-*" | Select-Object -First 1).FullName
           if (-not $chromiumSrc) {
             Write-Error "Chromium not found in $env:LOCALAPPDATA\ms-playwright"

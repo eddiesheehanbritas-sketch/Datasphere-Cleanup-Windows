@@ -17,9 +17,11 @@ from pathlib import Path
 
 ROOT = Path(SPECPATH).parent  # build-windows/ is one level below the project root
 
-# Windows venv layout: .venv\Lib\site-packages  (no python3.x subdirectory)
-VENV_SITE = ROOT / ".venv" / "Lib" / "site-packages"
-PLAYWRIGHT_DRIVER = VENV_SITE / "playwright" / "driver"
+# Find the Playwright driver from the system Python (no venv on the CI runner).
+# sys.path contains the site-packages directory for the active Python.
+import site
+_site = Path(site.getsitepackages()[0])
+PLAYWRIGHT_DRIVER = _site / "playwright" / "driver"
 
 # Windows Playwright cache: %LOCALAPPDATA%\ms-playwright\chromium-1223
 LOCALAPPDATA = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
