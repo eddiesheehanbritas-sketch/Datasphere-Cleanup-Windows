@@ -21,32 +21,37 @@ jobs:
       - name: Install dependencies
         run: |
           python -m venv .venv
-          .venv\Scripts\activate
-          pip install --upgrade pip
-          pip install -r requirements.txt
-          pip install pyinstaller
+          .venv\Scripts\pip install --upgrade pip
+          .venv\Scripts\pip install -r requirements.txt
+          .venv\Scripts\pip install pyinstaller
         shell: cmd
 
       - name: Install Playwright and download Chromium
-        run: |
-          .venv\Scripts\activate
-          playwright install chromium
+        run: .venv\Scripts\playwright install chromium
         shell: cmd
 
       - name: Build with PyInstaller
-        run: |
-          .venv\Scripts\activate
-          pyinstaller build-windows\datasphere-cleanup-windows.spec
+        run: .venv\Scripts\pyinstaller build-windows\datasphere-cleanup-windows.spec
         shell: cmd
 
       - name: Copy Chromium into dist folder
         # Chromium must be copied in after PyInstaller runs — if it were included
         # in the spec's datas, PyInstaller would reprocess its binaries and break them.
+        # Use the venv's playwright to find the exact chromium path rather than
+        # hardcoding it, since the revision number can vary by playwright version.
         run: |
-          $chromiumSrc = "$env:LOCALAPPDATA\ms-playwright\chromium-1223"
-          $chromiumDst = "dist\Datasphere Cleanup\ms-playwright\chromium-1223"
+          $playwrightDir = ".venv\Lib\site-packages\playwright"
+          $chromiumSrc = (Get-ChildItem "$env:LOCALAPPDATA\ms-playwright" -Filter "chromium-*" | Select-Object -First 1).FullName
+          if (-not $chromiumSrc) {
+            Write-Error "Chromium not found in $env:LOCALAPPDATA\ms-playwright"
+            exit 1
+          }
+          Write-Host "Copying Chromium from $chromiumSrc"
+          $chromiumDirName = Split-Path $chromiumSrc -Leaf
+          $chromiumDst = "dist\Datasphere Cleanup\ms-playwright\$chromiumDirName"
           New-Item -ItemType Directory -Force -Path $chromiumDst | Out-Null
           Copy-Item -Recurse -Force "$chromiumSrc\*" "$chromiumDst\"
+          Write-Host "Chromium copied to $chromiumDst"
         shell: pwsh
 
       - name: Zip the distribution folder
