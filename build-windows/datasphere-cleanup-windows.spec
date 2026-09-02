@@ -17,11 +17,17 @@ from pathlib import Path
 
 ROOT = Path(SPECPATH).parent  # build-windows/ is one level below the project root
 
-# Find the Playwright driver from the system Python (no venv on the CI runner).
-# sys.path contains the site-packages directory for the active Python.
-import site
-_site = Path(site.getsitepackages()[0])
-PLAYWRIGHT_DRIVER = _site / "playwright" / "driver"
+# Find the Playwright driver from the active Python's site-packages.
+# Search sys.path for a site-packages dir that actually contains playwright.
+import sys as _sys
+PLAYWRIGHT_DRIVER = None
+for _p in _sys.path:
+    _candidate = Path(_p) / "playwright" / "driver"
+    if _candidate.exists():
+        PLAYWRIGHT_DRIVER = _candidate
+        break
+if PLAYWRIGHT_DRIVER is None:
+    raise FileNotFoundError("Playwright driver not found in any sys.path entry")
 
 # Windows Playwright cache: %LOCALAPPDATA%\ms-playwright\chromium-1223
 LOCALAPPDATA = Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
