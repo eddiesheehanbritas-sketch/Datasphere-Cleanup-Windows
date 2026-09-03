@@ -24,7 +24,26 @@ The tool works in four stages:
 
 ## Install
 
-You do **not** need Python or any developer tools — just download the app.
+You do **not** need Python or any developer tools.
+
+---
+
+### Windows
+
+1. Download the ZIP from the [**Datasphere-Cleanup-Windows**](https://github.com/eddiesheehanbritas-sketch/Datasphere-Cleanup-Windows) repository:
+   - Click **Code** → **Download ZIP**
+2. Extract the ZIP, open the `windows/` folder inside it
+3. Open a terminal in that folder (click the address bar, type `cmd` or `powershell`, press Enter)
+4. Run:
+   ```
+   powershell -ExecutionPolicy Bypass -File .\install.ps1
+   ```
+5. The script installs everything automatically (~5–10 minutes). A **Datasphere Cleanup** shortcut appears on your Desktop when done.
+6. Double-click the shortcut to launch the app.
+
+---
+
+### Mac
 
 1. Go to the [**Releases** page](../../releases/latest) and download
    `Datasphere Cleanup.dmg`.
@@ -44,8 +63,9 @@ You do **not** need Python or any developer tools — just download the app.
    xattr -dr com.apple.quarantine "/Applications/Datasphere Cleanup.app"
    ```
 
-**Requirements:** an Apple Silicon Mac (M1 or later) and SAP Datasphere admin
-credentials. Chromium is bundled inside the app — nothing else to install.
+**Mac requirements:** Apple Silicon (M1 or later). Chromium is bundled — nothing else to install.
+
+---
 
 On first launch the app creates `~/Documents/Datasphere Cleanup/` for its config
 and outputs.
