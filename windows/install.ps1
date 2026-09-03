@@ -67,6 +67,8 @@ $python = "$INSTALL_DIR\venv\Scripts\python.exe"
 Write-Step "Installing dependencies (this may take a minute)..."
 
 & $pip install --upgrade pip | Out-Null
+# Pin greenlet to a version with a pre-built Windows wheel (avoids needing C++ Build Tools)
+& $pip install "greenlet==3.1.1"
 & $pip install -r "$INSTALL_DIR\requirements.txt"
 
 # ── 5. Install Playwright and download Chromium ───────────────────────────────
@@ -120,9 +122,11 @@ foreach ($f in $deletedFiles) {
 Write-Step "Creating desktop shortcut..."
 
 $launchSrc = "$INSTALL_DIR\windows\launch.ps1"
-$shortcutPath = "$env:USERPROFILE\Desktop\Datasphere Cleanup.lnk"
 
+# Use SpecialFolders to find Desktop reliably (works with OneDrive-redirected desktops)
 $shell = New-Object -ComObject WScript.Shell
+$desktopPath = $shell.SpecialFolders("Desktop")
+$shortcutPath = "$desktopPath\Datasphere Cleanup.lnk"
 $shortcut = $shell.CreateShortcut($shortcutPath)
 $shortcut.TargetPath = "powershell.exe"
 $shortcut.Arguments = "-ExecutionPolicy Bypass -WindowStyle Hidden -File `"$launchSrc`""
