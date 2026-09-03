@@ -14,4 +14,4 @@ if (-not (Test-Path $python)) {
 }
 
 Set-Location $INSTALL_DIR
-& $python "$INSTALL_DIR\src\combined.py"
+& $python -m src.combined
