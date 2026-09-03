@@ -20,7 +20,7 @@ Write-Step "Checking Python 3.9..."
 if (-not (Test-Path $PYTHON_EXE)) {
     Write-Host "Python 3.9 not found. Downloading installer..."
     $pyInstaller = "$env:TEMP\python-3.9.13-amd64.exe"
-    Invoke-WebRequest -Uri $PYTHON_URL -OutFile $pyInstaller
+    Invoke-WebRequest -Uri $PYTHON_URL -OutFile $pyInstaller -MaximumRedirection 5
     Write-Host "Installing Python 3.9 (just for you, no admin needed)..."
     Start-Process -FilePath $pyInstaller -ArgumentList "/quiet", "InstallAllUsers=0", "PrependPath=0" -Wait
     Remove-Item $pyInstaller
@@ -40,7 +40,7 @@ Write-Step "Downloading Datasphere Cleanup..."
 $zipPath = "$env:TEMP\datasphere-cleanup.zip"
 $extractPath = "$env:TEMP\datasphere-cleanup-extract"
 
-Invoke-WebRequest -Uri $REPO_ZIP_URL -OutFile $zipPath
+Invoke-WebRequest -Uri $REPO_ZIP_URL -OutFile $zipPath -MaximumRedirection 5
 if (Test-Path $extractPath) { Remove-Item -Recurse -Force $extractPath }
 Expand-Archive -Path $zipPath -DestinationPath $extractPath
 Remove-Item $zipPath
